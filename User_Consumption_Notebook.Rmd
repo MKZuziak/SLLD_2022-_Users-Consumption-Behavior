@@ -1,0 +1,99 @@
+# [Statistical Learning and Large Data - Web Application Consumption]{.smallcaps}
+
+---
+title: "Statistical Learning and Large Data - Web Application Consumption"
+auhor: "Maciej Zuziak & Roberto Casaluce"
+date: "14/04/2022"
+output:
+  pdf_document:
+    toc: true
+  html_document: default
+urlcolor: blue
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r}
+library(mvtnorm)
+library(factoextra)
+library(scales)
+library(ellipse)
+library(corrplot)
+library(ggplot2)
+library(dplyr)
+```
+
+## [Data Exploration & Preparation]{.smallcaps}
+
+```{r}
+head(Users_Consumption_Behavior_2019)
+```
+
+```{r}
+length(Users_Consumption_Behavior_2019)
+Users_Consumption_Behavior_2019[,114]
+```
+
+```{r}
+# Detaching column containing clusters (column no. 114)
+Users_Data <- Users_Consumption_Behavior_2019[,1:113]
+data_copy <- Users_Data
+data_copy
+```
+
+Because it was observed, that some categories contain abundance of
+values equal 0 (no app consumption) registered for that user, we have
+decided to investigate this matter closer.
+
+```{r}
+column_names <- c(names(data_copy))
+column_names = column_names[2:113]
+columns_overview = data.frame(df=column_names)
+columns_overview
+```
+
+```{r}
+missing_values = c()
+for(i in 2:ncol(Users_Data)){
+  # Null_values(0)
+  sums_zero = sum(data_copy[, i] == 0)
+  missing_val = sums_zero
+  missing_values = append(missing_values, missing_val)
+}
+
+columns_overview$null_values <- c(missing_values)
+sorted_overview <-columns_overview[order(columns_overview$null_values, decreasing=FALSE),]
+sorted_overview
+```
+
+```{r}
+hist(sorted_overview$null_values,
+     main = "Histogram for missing values",
+     xlab = "No. of missing values",
+     border = "blue",
+     col = "green")
+```
+
+The histogram presented above clearly indicates that there is a problem
+with some categories included in the dataset. Around 30% of the features
+does not contain values from around 1200 to 1400 users. Another 30% of
+features does not contain values from around 800 1200 users. From that
+point onward, there are two possible solutions for that problem:
+
+-   We could remove 60% of the features that are above some
+    missing-value threshold.
+
+-   We could perform a PCA on the whole dataset, thus eliminating
+    unnecessary features that do not contain much information about
+    users behavior.
+
+For now I would prefer the first option - but its open to debate what
+behavior we may adapt.
+
+```{r}
+# To complete, I don't know if there is a built-in method for selecting based on complex condition. The select_if seems like a one, but I am not sure whether it works like the equivalent in Pandas. 
+for(i in 2:ncol(data_copy)){
+  
+}
+```
