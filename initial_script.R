@@ -4,7 +4,7 @@ data <- read.csv('Users_Consumption_Behavior.csv')
 str(data)
 sapply(data, function(x) sum(is.na(x)))# checks for nas in the whole dataframe
 
-##add a new column Traget using cluster colunm
+##add a new column Target using cluster colunm
 
 library(dplyr)
 
@@ -18,13 +18,13 @@ data <- data%>% mutate(Target = case_when(cluster == "0" ~ "Low",
 sum(is.na(data))
 sum(is.null(data))
 
-###checks number of unique values in each columns
+###checks number of unique values in each column
 require(dplyr)
 dict <- sapply(data, n_distinct)
 print(class(dict))
 dict
 
-#to check which ones are the values
+#to check which fetuatures value count
 unique(data[c("Viber_time_occupation")])#only two values 0 and 9.437501
 table(data$Viber_time_occupation)#number of zeros 1248 and 1 for the value 9.437501
 
@@ -59,7 +59,7 @@ corrplot(M, method="circle")
 #second type of correlation plot
 corrplot(M, method="number")
 
-###Removing highly correlated variables
+###Removing highly correlated variable#### It needs to be tested
 cor_matrix <- cor(data[,1:107])  # Correlation matrix
 cor_matrix
 
@@ -110,7 +110,7 @@ legend("bottomright", fill = c("red","green3","blue"), legend = c( levels(data$T
 
 
 
-#PCA
+####PCA using prof labs
 res <- prcomp(data2, scale = TRUE)
 get_eig(res)
 fviz_eig(res, addlabels = TRUE)
