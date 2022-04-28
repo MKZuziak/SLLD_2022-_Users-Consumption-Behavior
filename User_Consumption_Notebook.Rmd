@@ -27,18 +27,38 @@ library(dplyr)
 ## [Data Exploration & Preparation]{.smallcaps}
 
 ```{r}
-head(Users_Consumption_Behavior_2019)
+head(Users.Consumption.Behavior._2019)
 ```
 
 ```{r}
-length(Users_Consumption_Behavior_2019)
-Users_Consumption_Behavior_2019[,114]
+data <- Users.Consumption.Behavior._2019
+head(data)
+data[,114]
+```
+
+```{r}
+# Adding a column based on other column:
+data <- data%>% mutate(Target = case_when(cluster == "0" ~ "Low",
+    cluster == "1" ~ "Medium",
+    cluster==  "2" ~ "High"
+  ))
+```
+
+```{r}
+sum(is.na(data))
+sum(is.null(data))
+```
+
+```{r}
+dict <- sapply(data, n_distinct)
+print(class(dict))
+dict
 ```
 
 ```{r}
 # Detaching column containing clusters (column no. 114)
-Users_Data <- Users_Consumption_Behavior_2019[,1:113]
-data_copy <- Users_Data
+Users_data_overview <- data[,1:113]
+data_copy <- Users_data_overview
 data_copy
 ```
 
@@ -50,12 +70,9 @@ decided to investigate this matter closer.
 column_names <- c(names(data_copy))
 column_names = column_names[2:113]
 columns_overview = data.frame(df=column_names)
-columns_overview
-```
 
-```{r}
 missing_values = c()
-for(i in 2:ncol(Users_Data)){
+for(i in 2:ncol(Users_data_overview)){
   # Null_values(0)
   sums_zero = sum(data_copy[, i] == 0)
   missing_val = sums_zero
@@ -65,9 +82,7 @@ for(i in 2:ncol(Users_Data)){
 columns_overview$null_values <- c(missing_values)
 sorted_overview <-columns_overview[order(columns_overview$null_values, decreasing=FALSE),]
 sorted_overview
-```
 
-```{r}
 hist(sorted_overview$null_values,
      main = "Histogram for missing values",
      xlab = "No. of missing values",
@@ -92,8 +107,63 @@ For now I would prefer the first option - but its open to debate what
 behavior we may adapt.
 
 ```{r}
-# To complete, I don't know if there is a built-in method for selecting based on complex condition. The select_if seems like a one, but I am not sure whether it works like the equivalent in Pandas. 
-for(i in 2:ncol(data_copy)){
-  
-}
+uniquelength <- sapply(data,function(x) length(unique(x)))
+data <- subset(data, select=uniquelength>2)
+data
 ```
+
+```{r}
+uniquelength <- sapply(data,function(x) length(unique(x)))
+data <- subset(data, select=uniquelength>2)
+data
+dict <- sapply(data, n_distinct)
+print(class(dict))
+dict[0:106]
+hist(dict[0:106],
+     main = "Histogram for missing values",
+     xlab = "No. of missing values",
+     border = "blue",
+     col = "green")
+```
+
+```{r}
+colClean <- function(x){ colnames(x) <- gsub("_occupation", "", colnames(x)); x }
+data <- colClean(data)
+data
+```
+```{r}
+#correlation for just a few features
+library(corrplot)
+M<-cor(data[,2:5])
+head(round(M,2))
+#first type of correlation plot
+corrplot(M, method="circle")
+#second type of correlation plot
+corrplot(M, method="number")
+
+###Removing highly correlated variables
+###Removing highly correlated variable#### It needs to be tested
+cor_matrix <- cor(data[,1:107])  # Correlation matrix
+cor_matrix
+```
+```{r}
+# Using the sample mean as a 0-dimensional reduction of data on the example of 'HTTP_time' and 'Amazon_time'
+exemplary_entry = data[, c('HTTP_time', 'Amazon_time')]
+med <- colMeans(exemplary_entry) #PC 0
+
+#plotting the mean
+plot(exemplary_entry, asp=1)
+points(med[1], med[2], col='red', pch=16)
+
+plot(exemplary_entry, asp=1)
+points(med[1], med[2], col='red', pch=16)
+for(i in 1:200)
+  lines(rbind(exemplary_entry[i,], med), col='red')
+```
+
+```{r}
+
+```
+
+
+\`\`\`
