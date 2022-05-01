@@ -22,9 +22,11 @@ library(ellipse)
 library(corrplot)
 library(ggplot2)
 library(dplyr)
+library(rrcov)
+library(stats)
 ```
 
-## [Data Exploration & Preparation]{.smallcaps}
+## 1. [Data Exploration & Preparation]{.smallcaps}
 
 ```{r}
 head(Users.Consumption.Behavior._2019)
@@ -131,6 +133,7 @@ colClean <- function(x){ colnames(x) <- gsub("_occupation", "", colnames(x)); x 
 data <- colClean(data)
 data
 ```
+
 ```{r}
 #correlation for just a few features
 library(corrplot)
@@ -146,9 +149,66 @@ corrplot(M, method="number")
 cor_matrix <- cor(data[,1:107])  # Correlation matrix
 cor_matrix
 ```
+
+### 1.2. [Summary]{.smallcaps}
+
+In this section, the following was performed:
+
+1.  General EDA to get acquainted with the data set basic features and
+    characteristic.
+
+2.  Data sanitation procedure, during which:
+
+    -   We have performed search for missing values (no abnormalities
+        detected).
+
+    -   Inspected the amount of information contained by some features -
+        thus removing features that did not contain any entries or where
+        the number of entries was smaller then 2.
+
+    -   Check the the correlation of features and as a consequence,
+        removed features that were highly correlated.
+
+    -   Added an additional target categorical feature to better explain
+        the data set. Entries from relevant clusters were marked as
+        follow:
+
+        -   Cluster 0 - Low
+
+        -   Cluster 1 - Medium
+
+        -   Cluster 2 - High
+
+3.  As a consequence of our actions, the data set was transformed from
+    114 dimensions to 107 dimensions.
+
+## 2. [Principal Component Analysis]{.smallcaps}
+
+### 2.1. [PCA Introduction]{.smallcaps}
+
+#### 2.1.1. [Min-Max Normalization]{.smallcaps}
+
+$$
+x' = \frac{x - min(x)}{max(x) - min(x)}
+$$
+
+```{r}
+exemplary_entry = data[, c('HTTP_time', 'Amazon_time')]
+
+norm_minmax <- function(x){
+  (x - min(x)) / (max(x) - min(x))
+}
+
+exemplary_entry <- as.data.frame(lapply(exemplary_entry, norm_minmax))
+head(exemplary_entry)
+ggplot()+
+  geom_point(exemplary_entry, mapping = aes(x=HTTP_time, y=Amazon_time, color='blue'))
+```
+
+#### 2.1.2. [Introduction to dimensional reduction using the sample's mean]
+
 ```{r}
 # Using the sample mean as a 0-dimensional reduction of data on the example of 'HTTP_time' and 'Amazon_time'
-exemplary_entry = data[, c('HTTP_time', 'Amazon_time')]
 med <- colMeans(exemplary_entry) #PC 0
 
 #plotting the mean
@@ -162,8 +222,82 @@ for(i in 1:200)
 ```
 
 ```{r}
+# For the horizontal axis y = med[2]
+plot(exemplary_entry, asp=1)
+points(med[1], med[2], col='red', pch=16)
+abline(h=med[2], lty=2) # h - the y-values(s) for horizontal line(s)
+points(exemplary_entry[,1], rep(med[2], length(exemplary_entry[,1])), col='red')
+var(exemplary_entry[,1])
+
+# For the vertical-axis, x = med[1]
+abline(v=med[1], lty=2) # v - the x value(s) for horizontal line(s)
+points(rep(med[1], length(exemplary_entry[,1])), exemplary_entry[,2], col='blue')
+var(exemplary_entry[,2])
+```
+
+### 2.2. [PCA on the full data set]{.smallcaps}
+
+In this section, we try to run PCA on the data set to obtain some
+further information about further dimensionality reduction that may be
+possible.
+
+```{r}
+data_pca <- data[,2:106]
+res <- prcomp(data_pca, scale = TRUE)
+get_eig(res)
+fviz_eig(res)
+fviz_eig(res, ncp = 25)
+```
+
+```{r}
+plot(get_eig(res)$cumulative.variance.percent, 
+     type='b', axes=F, xlab='Dimensions', ylab='cumulative PVE', ylim=c(0,100))
+abline(h=100, col=alpha('blue',0.5))
+abline(h=80, lty=2, col='red', lwd=2) # thresholding
+box()
+axis(2, at=0:100,labels=0:100)
+axis(1,at=1:ncol(data_pca),labels=1:ncol(data_pca))
+grid()
+```
+
+The following three plots are giving us basic information on the
+variance preserved by the principal components. While the elbow on the
+scree plot is visible around n(dimensions) equal to 5 or 6, we must also
+inspect the graph of cumulative preserved variance explained. Ideally,
+we should aim for around 70 to 80% of PVE. This would require preserving
+around 47 dimensions of the data set.
+
+```{r}
+loadings <- res$rotation
+PC1 = loadings[0-30, 1]
+PC2 = loadings[0-30, 2]
+```
+
+```{r}
+fviz_pca_var(res,
+             col.var = "contrib", # Color by contributions to the PC
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), geom = c('point'),
+             repel = TRUE )    # Avoid text overlapping
+```
+
+One last experiment provides for using Robust PCA as an alternative to
+"standard" PCA and comparing those two methods.
+
+```{r}
+pcarob <- PcaHubert(data_pca, k=4, alpha=0.75, scale = TRUE)
+par(mfrow=c(1,2))
+plot(pcarob)
+
+pcarob2 <- PcaHubert(data_pca, k=2)
+plot(pcarob2)
 
 ```
 
+```{r}
+screeplot(pcarob, main='Robust PCA')
+screeplot(res, main='Standard PCA') #Res is a standard PCA performed by prcomp(data_pca, scale = TRUE)
+```
 
-\`\`\`
+### 2.3. [Multidimensional Scaling]{.smallcaps}
+
+We may consider using this.
