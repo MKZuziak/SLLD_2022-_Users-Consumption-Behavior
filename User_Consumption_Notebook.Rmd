@@ -259,7 +259,6 @@ axis(2, at=0:100,labels=0:100)
 axis(1,at=1:ncol(data_pca),labels=1:ncol(data_pca))
 grid()
 ```
-
 The following three plots are giving us basic information on the
 variance preserved by the principal components. While the elbow on the
 scree plot is visible around n(dimensions) equal to 5 or 6, we must also
@@ -279,6 +278,11 @@ fviz_pca_var(res,
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"), geom = c('point'),
              repel = TRUE )    # Avoid text overlapping
 ```
+
+```{r}
+# TODO: Scatter plot for users.
+```
+
 
 One last experiment provides for using Robust PCA as an alternative to
 "standard" PCA and comparing those two methods.
@@ -300,4 +304,4 @@ screeplot(res, main='Standard PCA') #Res is a standard PCA performed by prcomp(d
 
 ### 2.3. [Multidimensional Scaling]{.smallcaps}
 
-We may consider using this.
+data_scaled <-
