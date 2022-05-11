@@ -92,6 +92,9 @@ hist(sorted_overview$null_values,
      border = "blue",
      col = "green")
 ```
+```{r}
+
+```
 
 The histogram presented above clearly indicates that there is a problem
 with some categories included in the dataset. Around 30% of the features
@@ -132,7 +135,44 @@ hist(dict[0:106],
 ```{r}
 colClean <- function(x){ colnames(x) <- gsub("_occupation", "", colnames(x)); x }
 data <- colClean(data)
-data
+```
+```{r}
+sum_time <- data.frame(total_time = rowSums(data[,2:106], na.rm = FALSE, dims=1))
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     border = "blue",
+     col = "green",
+     breaks = 100)
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     breaks="FD",
+     border = "blue",
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data[, 2:106], na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = 100,
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data[, 2:106], na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = "FD",
+     col = "green")
+```
+```{r}
+#sum_cat_sorted <- sort(x = sum_cat$total_time)
+sum_cat_sorted <- data.frame(sum_cat[order(sum_cat$total_time),])
+sum_cat_sorted
 ```
 
 ```{r}
