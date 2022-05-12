@@ -1,9 +1,7 @@
-# [Statistical Learning and Large Data - Web Application Consumption]{.smallcaps}
-
 ---
 title: "Statistical Learning and Large Data - Web Application Consumption"
 auhor: "Maciej Zuziak & Roberto Casaluce"
-date: "14/04/2022"
+date: "12/05/2022"
 output:
   pdf_document:
     toc: true
@@ -14,7 +12,14 @@ editor_options:
     wrap: 72
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# [Statistical Learning and Large Data - Web Application Consumption]{.smallcaps}
+
 ```{r}
+library(tibble)
 library(mvtnorm)
 library(factoextra)
 library(scales)
@@ -25,10 +30,17 @@ library(dplyr)
 library(rrcov)
 library(stats)
 library(lares)
+library(glmnet)
+library(ggpubr)
+library(cluster)
+library(NbClust)
+#library(ggbiplot)
 ```
 
 ## 1. [Data Exploration & Preparation]{.smallcaps}
 
+### 1.1. [General EDA and Data Cleaning]{.smallcaps}
+#### 1.1.1. [Search for NaN/NA and entries equal to 0]{.smallcaps}
 ```{r}
 head(Users.Consumption.Behavior._2019)
 ```
@@ -38,15 +50,6 @@ data <- Users.Consumption.Behavior._2019
 head(data)
 data[,114]
 ```
-
-```{r}
-# Adding a column based on other column:
-data <- data%>% mutate(Target = case_when(cluster == "0" ~ "Low",
-    cluster == "1" ~ "Medium",
-    cluster==  "2" ~ "High"
-  ))
-```
-
 ```{r}
 sum(is.na(data))
 sum(is.null(data))
@@ -62,7 +65,7 @@ dict
 # Detaching column containing clusters (column no. 114)
 Users_data_overview <- data[,1:113]
 data_copy <- Users_data_overview
-data_copy
+data <- data_copy
 ```
 
 Because it was observed, that some categories contain abundance of
@@ -90,27 +93,13 @@ hist(sorted_overview$null_values,
      main = "Histogram for missing values",
      xlab = "No. of missing values",
      border = "blue",
-     col = "green")
+     col = "green",
+     breaks = 10)
 ```
-```{r}
-
-```
-
 The histogram presented above clearly indicates that there is a problem
 with some categories included in the dataset. Around 30% of the features
 does not contain values from around 1200 to 1400 users. Another 30% of
-features does not contain values from around 800 1200 users. From that
-point onward, there are two possible solutions for that problem:
-
--   We could remove 60% of the features that are above some
-    missing-value threshold.
-
--   We could perform a PCA on the whole dataset, thus eliminating
-    unnecessary features that do not contain much information about
-    users behavior.
-
-For now I would prefer the first option - but its open to debate what
-behavior we may adapt.
+features does not contain values from around 800 1200 users.
 
 ```{r}
 uniquelength <- sapply(data,function(x) length(unique(x)))
@@ -129,158 +118,15 @@ hist(dict[0:106],
      main = "Histogram for missing values",
      xlab = "No. of missing values",
      border = "blue",
-     col = "green")
+     col = "green",
+     breaks = 10)
 ```
 
 ```{r}
 colClean <- function(x){ colnames(x) <- gsub("_occupation", "", colnames(x)); x }
 data <- colClean(data)
 ```
-```{r}
-sum_time <- data.frame(total_time = rowSums(data[,2:106], na.rm = FALSE, dims=1))
-hist(sum_time[,1],
-     main = "TOTAL TIME OCCUPATION PER USER",
-     xlab = "TIME OCCUPATION",
-     ylab = "NUMBER OF USERS",
-     border = "blue",
-     col = "green",
-     breaks = 100)
-hist(sum_time[,1],
-     main = "TOTAL TIME OCCUPATION PER USER (Freedman-Diaconis)",
-     xlab = "TIME OCCUPATION",
-     ylab = "NUMBER OF USERS",
-     breaks="FD",
-     border = "blue",
-     col = "green")
-sum_cat <- data.frame(total_time = colSums(data[, 2:106], na.rm = FALSE, dims=1))
-hist(sum_cat[,1],
-     main = "TOTAL TIME OCCUPATION PER PLATFORM",
-     xlab = "TIME OCCUPATION",
-     ylab = "NUMBER OF PLATFORMS",
-     border = "blue",
-     breaks = 100,
-     col = "green")
-sum_cat <- data.frame(total_time = colSums(data[, 2:106], na.rm = FALSE, dims=1))
-hist(sum_cat[,1],
-     main = "TOTAL TIME OCCUPATION PER PLATFORM (Freedman-Diaconis)",
-     xlab = "TIME OCCUPATION",
-     ylab = "NUMBER OF PLATFORMS",
-     border = "blue",
-     breaks = "FD",
-     col = "green")
-```
-```{r}
-#sum_cat_sorted <- sort(x = sum_cat$total_time)
-sum_cat_sorted <- data.frame(sum_cat[order(sum_cat$total_time),])
-sum_cat_sorted
-```
-
-```{r}
-#correlation for just a few features
-library(corrplot)
-M<-cor(data[,2:5])
-head(round(M,2))
-#first type of correlation plot
-corrplot(M, method="circle")
-#second type of correlation plot
-corrplot(M, method="number")
-
-###Removing highly correlated variables
-###Removing highly correlated variable#### It needs to be tested
-cor_matrix <- cor(data[,1:107])  # Correlation matrix
-cor_matrix
-```
-
-### 1.2. [Summary]{.smallcaps}
-
-In this section, the following was performed:
-
-1.  General EDA to get acquainted with the data set basic features and
-    characteristic.
-
-2.  Data sanitation procedure, during which:
-
-    -   We have performed search for missing values (no abnormalities
-        detected).
-
-    -   Inspected the amount of information contained by some features -
-        thus removing features that did not contain any entries or where
-        the number of entries was smaller then 2.
-
-    -   Check the the correlation of features and as a consequence,
-        removed features that were highly correlated.
-
-    -   Added an additional target categorical feature to better explain
-        the data set. Entries from relevant clusters were marked as
-        follow:
-
-        -   Cluster 0 - Low
-
-        -   Cluster 1 - Medium
-
-        -   Cluster 2 - High
-
-3.  As a consequence of our actions, the data set was transformed from
-    114 dimensions to 107 dimensions.
-
-## 2. [Principal Component Analysis]{.smallcaps}
-
-### 2.1. [PCA Introduction]{.smallcaps}
-
-#### 2.1.1. [Min-Max Normalization]{.smallcaps}
-
-$$
-x' = \frac{x - min(x)}{max(x) - min(x)}
-$$
-
-```{r}
-exemplary_entry = data[, c('HTTP_time', 'Amazon_time')]
-
-norm_minmax <- function(x){
-  (x - min(x)) / (max(x) - min(x))
-}
-
-exemplary_entry <- as.data.frame(lapply(exemplary_entry, norm_minmax))
-head(exemplary_entry)
-ggplot()+
-  geom_point(exemplary_entry, mapping = aes(x=HTTP_time, y=Amazon_time, color='blue'))
-```
-
-#### 2.1.2. [Introduction to dimensional reduction using the sample's mean]
-
-```{r}
-# Using the sample mean as a 0-dimensional reduction of data on the example of 'HTTP_time' and 'Amazon_time'
-med <- colMeans(exemplary_entry) #PC 0
-
-#plotting the mean
-plot(exemplary_entry, asp=1)
-points(med[1], med[2], col='red', pch=16)
-
-plot(exemplary_entry, asp=1)
-points(med[1], med[2], col='red', pch=16)
-for(i in 1:200)
-  lines(rbind(exemplary_entry[i,], med), col='red')
-```
-
-```{r}
-# For the horizontal axis y = med[2]
-plot(exemplary_entry, asp=1)
-points(med[1], med[2], col='red', pch=16)
-abline(h=med[2], lty=2) # h - the y-values(s) for horizontal line(s)
-points(exemplary_entry[,1], rep(med[2], length(exemplary_entry[,1])), col='red')
-var(exemplary_entry[,1])
-
-# For the vertical-axis, x = med[1]
-abline(v=med[1], lty=2) # v - the x value(s) for horizontal line(s)
-points(rep(med[1], length(exemplary_entry[,1])), exemplary_entry[,2], col='blue')
-var(exemplary_entry[,2])
-```
-
-### 2.2. [PCA on the full data set]{.smallcaps}
-
-In this section, we try to run PCA on the data set to obtain some
-further information about further dimensionality reduction that may be
-possible.
+#### 1.1.2. [Preliminary PCA and removing features about the data usage]{.smallcaps}
 
 ```{r}
 data_pca <- data[,2:106]
@@ -300,20 +146,23 @@ axis(2, at=0:100,labels=0:100)
 axis(1,at=1:ncol(data_pca),labels=1:ncol(data_pca))
 grid()
 ```
+
 The following three plots are giving us basic information on the
 variance preserved by the principal components. While the elbow on the
 scree plot is visible around n(dimensions) equal to 5 or 6, we must also
 inspect the graph of cumulative preserved variance explained. Ideally,
 we should aim for around 70 to 80% of PVE. This would require preserving
 around 47 dimensions of the data set.
+
 ```{r}
 varpca <- get_pca_var(res)
 varpca <- varpca$cos2
 varpca <- as.data.frame(varpca)
 varpca <- t(varpca)
 varpca <- as.data.frame(varpca)
-corr_cross(varpca, max_pvalue = 0.05, top = 20) #Looked at this, maybe we should drop data and leave only time?
+corr_cross(varpca, max_pvalue = 0.05, top = 20)
 ```
+
 ```{r}
 fviz_pca_var(res,
              col.var = "contrib", # Color by contributions to the PC
@@ -340,29 +189,358 @@ fviz_pca_biplot(res,
              gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
              repel = FALSE, title="PCA:2D - Complete Biplot")
 ```
-
-One last experiment provides for using Robust PCA as an alternative to
-"standard" PCA and comparing those two methods.
+```{r}
+####We have found a few duplicates IDS
+#removes duplicates of rows with the same IDs
+data <- filter(data, !duplicated(data[,1]))
+#Function to replace names columns to reduce their length
+#helpfull when plotting fetures
+colClean <- function(x){ colnames(x) <- gsub("_time_occupation", "", colnames(x)); x }
+data <- colClean(data)
+data <- data[,1:53]#we select only the time columns
+```
+```{r}
+data
+```
 
 ```{r}
-pcarob <- PcaHubert(data_pca, k=4, alpha=0.75, scale = TRUE)
-par(mfrow=c(1,2))
-plot(pcarob)
+sum_time <- data.frame(total_time = rowSums(data[,2:53], na.rm = FALSE, dims=1))
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     border = "blue",
+     col = "green",
+     breaks = 100)
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     breaks="FD",
+     border = "blue",
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data[, 2:53], na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = 100,
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data[, 2:53], na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = "FD",
+     col = "green")
+```
+### 1.2. [Data Perturbation]{.smallcaps}
 
-pcarob2 <- PcaHubert(data_pca, k=2)
-plot(pcarob2)
+```{r}
+data_new <- data + 0.19
+#summary(data_new)
+data_log <- log(data_new[,2:53])  
+#summary(data_log)
+#data_sc_log<- scale(data_log)
+```
+```{r}
+#data_log = add_column(data_log, data[, 1], after = 52)
+```
+```{r}
+data_log
+```
+```{r}
+sum_time <- data.frame(total_time = rowSums(data_log, na.rm = FALSE, dims=1))
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     border = "blue",
+     col = "green",
+     breaks = 100)
+hist(sum_time[,1],
+     main = "TOTAL TIME OCCUPATION PER USER (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF USERS",
+     breaks="FD",
+     border = "blue",
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data_log, na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = 100,
+     col = "green")
+sum_cat <- data.frame(total_time = colSums(data_log, na.rm = FALSE, dims=1))
+hist(sum_cat[,1],
+     main = "TOTAL TIME OCCUPATION PER PLATFORM (Freedman-Diaconis)",
+     xlab = "TIME OCCUPATION",
+     ylab = "NUMBER OF PLATFORMS",
+     border = "blue",
+     breaks = "FD",
+     col = "green")
+```
+
+### 1.3. [Quick Correlation Analysis]{.smallcaps}
+```{r}
+#correlation for just a few features
+library(corrplot)
+M<-cor(data_log[,2:5])
+head(round(M,2))
+#first type of correlation plot
+corrplot(M, method="circle")
+#second type of correlation plot
+corrplot(M, method="number")
+
+###Removing highly correlated variables
+###Removing highly correlated variable#### It needs to be tested
+cor_matrix <- cor(data_log)  # Correlation matrix
+cor_matrix
+```
+
+### 1.4. [Summary]{.smallcaps}
+
+In this section, the following was performed:
+
+1.  General EDA to get acquainted with the data set basic features and
+    characteristic.
+
+2.  Data sanitation procedure, during which:
+
+    -   We have performed search for missing values (no abnormalities
+        detected).
+
+    -   Inspected the amount of information contained by some features -
+        thus removing features that did not contain any entries or where
+        the number of entries was smaller then 2.
+
+    -   Check the the correlation of features and as a consequence,
+        removed features that were highly correlated.
+    
+    - Added perturbation to the data taken from distribution [X] and then applied                logarithmic function in order to smoothen the distribution.  
+
+3.  As a consequence of our actions, the data set was transformed from
+    114 dimensions to 52 dimensions.
+
+## 2. [Principal Component Analysis]{.smallcaps}
+### 2.1. [PCA on the loged dataset]{.smallcaps}
+```{r}
+library(ggbiplot)
+```
+
+```{r}
+res <- prcomp(data_log, scale = FALSE)
+loadings <- res$rotation
+plot.new()
+varpca <- get_pca_var(res)
+varpca
+corrplot(varpca$contrib, is.corr=FALSE)
+corrplot(varpca$cos2, is.corr=FALSE)
+fviz_cos2(res,choice = "var", axes = 2)
+#A high cos2 indicates a good representation of the variable 
+#on the principal component.
+#A low cos2 indicates that the variable is not perfectly 
+#represented by the PCs.
+fviz_contrib(res, choice = "var", axes = 1, top =20)
+fviz_contrib(res, choice = "var", axes = 2, top =20)
+#The red dashed line on the graph above indicates the expected average contribution.
+
+
+#corrplot(varpca$contrib, is.corr=FALSE)
+#corrplot(varpca$cor, is.corr=FALSE)
+
+fviz_pca_ind(res, col.ind = "cos2", 
+             gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+             repel = TRUE # Avoid text overlapping (slow if many points)
+)
+
+
+#eigenvalue
+get_eig(res)
+
+####Screen Plot ###
+fviz_eig(res, addlabels = TRUE)
+
+plot(get_eig(res)$cumulative.variance.percent, 
+     type='b', axes=F, xlab='Dimensions', ylab='cumulative PVE', ylim=c(0,100))
+abline(h=100, col=alpha('blue',0.5))
+abline(h=80, lty=2, col='red', lwd=2) # thresholding
+box()
+axis(2, at=0:100,labels=0:100)
+axis(1,at=1:ncol(data[,2:53]),labels=1:ncol(data[,2:53]))
+grid()## too many features that should be selected
+
+####Biplot
+a <- fviz_pca_var(res,
+                  col.var = "contrib", # Color by contributions to the PC
+                  gradient.cols = c("#00AFBB", "#E7B800", "#FC4E07"),
+                  repel = TRUE ,label = "all")    # Avoid text overlapping
+
+
+ggpar(a,
+      title = "Principal Component Analysis",
+      xlab = "PC1", ylab = "PC2",
+      legend.title = "contrib", legend.position = "top",
+      ggtheme = theme_minimal())
+
+
+
+ggbiplot(res,ellipse = TRUE, varname.size = 2, alpha = 0.3)
+```
+## 3. [Clustering]{.smallcaps}
+
+### 3.1.[Hierarchical Clustering]{.smallcaps}
+```{r}
+eu_data <- dist(data_log, method='euclidean')
+#class(eu_iris) # note: this is not a matrix, but an object of a specific class
+```
+```{r}
+hc_single   <- hclust(eu_data, method='single')     # single linkage
+hc_complete <- hclust(eu_data, method='complete')   # complete linkage
+hc_average  <- hclust(eu_data, method='average')    # average linkage
+hc_centroid <- hclust(eu_data, method='centroid')   # centroid linkage
+
+str(hc_single)            # it's a list
+head(hc_single$merge, 10) # see the first 10 aggregations
+# to see its interpretation, check the "Value" (i.e., output) paragraph in here:
+# help(hclust)
+```
+
+```{r}
+# par(mfrow=c(2,2))
+fviz_dend(hc_single,   as.ggplot = TRUE, show_labels = FALSE, main='Euclidean-Single')
+fviz_dend(hc_complete, as.ggplot = TRUE, show_labels = FALSE, main='Euclidean-Complete')
+fviz_dend(hc_average,  as.ggplot = TRUE, show_labels = FALSE, main='Euclidean-Average')
+fviz_dend(hc_centroid, as.ggplot = TRUE, show_labels = FALSE, main='Euclidean-Centroid')
+```
+
+```{r}
+cluster_k <- cutree(hc_complete, k = 3)     # identify 2 groups
+cluster_k
+
+fviz_dend(hc_complete, k = 3, k_colors = "jco", 
+          as.ggplot = TRUE, show_labels = FALSE, 
+          main='Euclidean-Complete')
+```
+
+```{r}
+clHeight <- 34
+cluster_h <- cutree(hc_complete, h = clHeight)    #identify groups below a certain height 
+cluster_h
+
+fviz_dend(hc_complete, h = clHeight, k_colors = "jco", 
+          as.ggplot = TRUE, show_labels = FALSE, 
+          main='Euclidean-Complete')+
+  geom_hline(yintercept = clHeight, linetype = 2, col="red")
 
 ```
 
 ```{r}
-screeplot(pcarob, main='Robust PCA')
-screeplot(res, main='Standard PCA') #Res is a standard PCA performed by prcomp(data_pca, scale = TRUE)
+hc_diana <- diana(eu_data)
+str(hc_diana)
+class(hc_diana)       # notice its difference from class(hc_centroid) etc.
+head(hc_diana$merge)
+hc_centroid
+```
+```{r}
+res <- kmeans(data_log, 3)
+```
+```{r}
+fviz_dend(hc_diana, as.ggplot = TRUE, 
+          show_labels = FALSE, main='Euclidean-Complete') # plot the dendrogram
+
+cluster_diana <- cutree(hc_diana, k=3)                    # cut by k (with height? Error)
+cluster_diana
+
+cluster_diana <- cutree(as.hclust(hc_diana), h=5.5)       # cut by height (NOTE: convert it)
+cluster_diana
+
+```
+```{r}
+
+res <- kmeans(data_log, 3, nstart = 10)
+
+hc_res <- eclust(data_log,                        # data
+                 "hclust",                     # method
+                 k = 3,                        # num. of clusters
+                 hc_metric = "euclidean",      # distance measure
+                 hc_method = "complete")         # linkage function
+str(hc_res)
+hc_res$cluster
+fviz_dend(hc_res, as.ggplot = TRUE, 
+          show_labels = FALSE, 
+          main='Euclidean-Single with eclust') # plot the dendrogram
+
+```
+### 3.2.[K-means Clustering]{.smallcaps}
+```{r}
+res <- kmeans(data_log, 3, nstart = 10)
+res$cluster
+png("myplot.png", width=4, height=4, units="in", res=300)
+par(mar=c(4,4,1,1))
+#plot(data_log, col =(res$cluster +1) , main="K-Means Clustering Results with K=3", pch =20, cex =0.5)
+dev.off() #only 129kb in size
+```
+```{r}
+data_log
 ```
 
-### 2.3. [Multidimensional Scaling]{.smallcaps}
+```{r}
+# it receives data, algorithm, k, distance to compute
+km_res <- eclust(data_log, "kmeans", k = 3, hc_metric = "euclidean") 
+km_res$cluster
+```
 
 ```{r}
-#data_dist <- dist(data_pca)
-#data_dist
+distance <- dist(data_log, method="euclidean")
+sil <- silhouette(x = res$cluster, dist = distance)
+fviz_silhouette(sil)
+```
+
+```{r}
+fviz_nbclust(data_log, hcut, method = "wss") +
+  geom_vline(xintercept = 3, linetype = 2)
+```
+
+```{r}
+fviz_nbclust(data_log, kmeans, method = "wss") +
+  geom_vline(xintercept = 3, linetype = 2)
+```
+
+```{r}
+harAHC <- NbClust(data_log,  distance = "euclidean", method = "complete", index='hartigan')
+plot(harAHC$All.index, type = "l") 
+abline(v=harAHC$Best.nc[1], col="blue", lty=2)
+```
+
+```{r}
+harKM <- NbClust(data_log,  distance = "euclidean", method = "kmeans", index='hartigan')
+plot(harKM$All.index, type = "l") 
+abline(v=harKM$Best.nc[1], col="blue", lty=2)
+```
+
+```{r}
+allKM <- NbClust(data_log,  distance = "euclidean", method = "kmeans", index='all')
+```
+
+```{r}
+fviz_nbclust(data_log, kmeans, method = "silhouette")+
+  labs(subtitle = "Silhouette method k-means")
+
+# Silhouette method
+fviz_nbclust(data_log, hcut, method = "silhouette")+
+  labs(subtitle = "Silhouette method AHC")
+```
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
 ```
 
