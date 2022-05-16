@@ -254,7 +254,7 @@ data_log
 ```{r}
 sum_time <- data.frame(total_time = rowSums(data_log, na.rm = FALSE, dims=1))
 hist(sum_time[,1],
-     main = "TOTAL TIME OCCUPATION PER USER",
+     main = "TOTAL TIME OCCUPATION PER USER (LOG TRANSFORMATION)",
      xlab = "TIME OCCUPATION",
      ylab = "NUMBER OF USERS",
      border = "blue",
@@ -269,7 +269,7 @@ hist(sum_time[,1],
      col = "green")
 sum_cat <- data.frame(total_time = colSums(data_log, na.rm = FALSE, dims=1))
 hist(sum_cat[,1],
-     main = "TOTAL TIME OCCUPATION PER PLATFORM",
+     main = "TOTAL TIME OCCUPATION PER PLATFORM (LOG TRANSFORMATION)",
      xlab = "TIME OCCUPATION",
      ylab = "NUMBER OF PLATFORMS",
      border = "blue",
