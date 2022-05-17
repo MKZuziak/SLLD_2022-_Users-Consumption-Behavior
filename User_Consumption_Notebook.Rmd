@@ -239,7 +239,8 @@ hist(sum_cat[,1],
 ### 1.2. [Data Perturbation]{.smallcaps}
 
 ```{r}
-data_new <- data + 0.19
+rn <- runif(1)
+data_new <- data + rn
 #summary(data_new)
 data_log <- log(data_new[,2:53])  
 #summary(data_log)
