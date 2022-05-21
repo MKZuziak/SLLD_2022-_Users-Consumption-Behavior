@@ -90,7 +90,7 @@ sorted_overview <-columns_overview[order(columns_overview$null_values, decreasin
 sorted_overview
 
 hist(sorted_overview$null_values,
-     main = "Histogram for missing values",
+     main = "Empty entries (t=0) in each category",
      xlab = "No. of missing values",
      border = "blue",
      col = "green",
@@ -115,7 +115,7 @@ dict <- sapply(data, n_distinct)
 print(class(dict))
 dict[0:106]
 hist(dict[0:106],
-     main = "Histogram for missing values",
+     main = "Empty entries (t=0) in each category after selection",
      xlab = "No. of missing values",
      border = "blue",
      col = "green",
