@@ -241,7 +241,7 @@ hist(sum_cat[,1],
 ```{r}
 data_new <- data + 0.19
 #summary(data_new)
-data_log <- log(data_new[,2:53])  
+data_log <- log10(data_new[,2:53])  
 #summary(data_log)
 #data_sc_log<- scale(data_log)
 ```
